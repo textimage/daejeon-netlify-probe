@@ -1,0 +1,43 @@
+name: Creator legacy API integration smoke test
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 3
+    steps:
+      - name: Check official API connectivity without credentials
+        shell: bash
+        run: |
+          set -u
+          for round in 1 2; do
+           for target in control_https control_http legacy_hostname legacy_ipv4; do
+            options=()
+            case "$target" in
+              control_https) url='https://example.com/' ;;
+              control_http) url='http://example.com/' ;;
+              *) url='http://openapitraffic.daejeon.go.kr/api/rest/busRouteInfo/getRouteInfoAll?reqPage=1' ;;
+            esac
+            if [ "$target" = legacy_ipv4 ]; then
+              options=(--resolve 'openapitraffic.daejeon.go.kr:80:210.99.67.65')
+            fi
+            echo "round=$round target=$target runner=${{ matrix.os }}"
+            rc=0
+            curl -4 --silent --show-error --noproxy '*' \
+              --connect-timeout 15 --max-time 20 \
+              --output response.txt \
+              --write-out 'httpStatus=%{http_code} remoteIp=%{remote_ip} connectSeconds=%{time_connect} elapsedSeconds=%{time_total}\n' \
+              "${options[@]}" "$url" || rc=$?
+            echo "curlExit=$rc"
+            if [ -f response.txt ]; then
+              head -c 500 response.txt
+              printf '\n'
+              rm response.txt
+            fi
+           done
+          done
