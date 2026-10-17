@@ -1,20 +1,25 @@
 name: Creator legacy API integration smoke test
 on:
   workflow_dispatch:
+    inputs:
+      macos_only:
+        description: Run only the macOS compatibility retest
+        type: boolean
+        default: false
 permissions: {}
 jobs:
   probe:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: ${{ fromJSON(inputs.macos_only && '["macos-latest"]' || '["ubuntu-latest","macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 3
     steps:
       - name: Check official API connectivity without credentials
         shell: bash
         run: |
-          set -u
+          set -o pipefail
           for round in 1 2; do
            for target in control_https control_http legacy_hostname legacy_ipv4; do
             options=()
